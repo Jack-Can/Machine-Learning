@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基于F1-score的动态分类阈值调整：理论、方法与实践</title>
+    <script src="https://cdn.tailwindcss.com/3.3.3"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.5.0/mermaid.min.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            line-height: 1.6;
+            color: #2d3748;
+        }
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px 0 rgba(31, 38, 135, 0.15);
+        }
+        .highlight-text {
+            position: relative;
+            display: inline-block;
+        }
+        .highlight-text::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background-color: rgba(79, 70, 229, 0.2);
+            z-index: -1;
+        }
+        .code-block {
+            position: relative;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            overflow-x: auto;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: rgba(79, 70, 229, 0.1);
+            color: #4f46e5;
+            border: none;
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .copy-btn:hover {
+            background-color: rgba(79, 70, 229, 0.2);
+        }
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            background-color: #4f46e5;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+        }
+        .back-to-top.visible {
+            opacity: 1;
+        }
+        .mobile-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            padding: 1rem;
+            margin: 0.5rem;
+            border-radius: 0.75rem;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            transform-origin: top;
+            transform: scaleY(0);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            z-index: 100;
+        }
+        .mobile-menu.active {
+            transform: scaleY(1);
+            opacity: 1;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 导航条 -->
+    <nav class="glassmorphism sticky top-0 z-50 p-4 mb-8" id="mainNav">
+        <div class="container mx-auto flex items-center justify-between">
+            <div class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text">
+                <i class="fas fa-chart-line mr-2"></i>F1-score动态阈值调整
+            </div>
+            <div class="hidden md:flex space-x-6">
+                <a href="#overview" class="text-gray-600 hover:text-indigo-600 transition-colors">目录</a>
+                <a href="#theory" class="text-gray-600 hover:text-indigo-600 transition-colors">理论基础</a>
+                <a href="#methods" class="text-gray-600 hover:text-indigo-600 transition-colors">方法工具</a>
+                <a href="#applications" class="text-gray-600 hover:text-indigo-600 transition-colors">应用案例</a>
+            </div>
+            <button class="md:hidden text-gray-600 focus:outline-none" id="mobileMenuButton" aria-label="导航菜单">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <!-- 移动端导航菜单 -->
+            <div class="mobile-menu md:hidden" id="mobileMenu">
+                <a href="#overview" class="text-gray-600 hover:text-indigo-600 transition-colors flex items-center">
+                    <i class="fas fa-list mr-3 text-indigo-500"></i>目录
+                </a>
+                <a href="#theory" class="text-gray-600 hover:text-indigo-600 transition-colors flex items-center">
+                    <i class="fas fa-book mr-3 text-indigo-500"></i>理论基础
+                </a>
+                <a href="#methods" class="text-gray-600 hover:text-indigo-600 transition-colors flex items-center">
+                    <i class="fas fa-tools mr-3 text-indigo-500"></i>方法工具
+                </a>
+                <a href="#applications" class="text-gray-600 hover:text-indigo-600 transition-colors flex items-center">
+                    <i class="fas fa-laptop-code mr-3 text-indigo-500"></i>应用案例
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 返回顶部按钮 -->
+    <div class="back-to-top" id="backToTop">
+        <i class="fas fa-arrow-up"></i>
+    </div>
+
+    <div class="container mx-auto px-4 md:px-8 py-8">
+        <!-- 标题部分 -->
+        <header class="text-center mb-16">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">基于F1-score的动态分类阈值调整</h1>
+            <p class="text-xl md:text-2xl text-gray-600">理论、方法与实践</p>
+        </header>
+
+        <!-- 目录部分 -->
+        <section id="overview" class="glassmorphism p-8 mb-16">
+            <h2 class="text-3xl font-bold mb-6 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-list"></i>
+                </div>
+                目录
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 text-indigo-600">主要内容</h3>
+                    <ol class="list-decimal pl-6 space-y-2">
+                        <li><a href="#theory" class="text-indigo-600 hover:underline">理论基础：F1-score与分类阈值的关系</a></li>
+                        <li><a href="#static-methods" class="text-indigo-600 hover:underline">静态阈值优化方法：从理论到工具</a></li>
+                        <li><a href="#dynamic-methods" class="text-indigo-600 hover:underline">动态阈值调整策略：从静态到实时</a></li>
+                        <li><a href="#applications" class="text-indigo-600 hover:underline">应用案例：从理论到业务落地</a></li>
+                        <li><a href="#challenges" class="text-indigo-600 hover:underline">挑战与最佳实践</a></li>
+                        <li><a href="#summary" class="text-indigo-600 hover:underline">总结</a></li>
+                    </ol>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 text-indigo-600">核心概念</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">F1-score</span>
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">精确率</span>
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">召回率</span>
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">P-R曲线</span>
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">数据漂移</span>
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">多分类阈值</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 理论基础部分 -->
+        <section id="theory" class="glassmorphism p-8 mb-16">
+            <h2 class="text-3xl font-bold mb-6 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-book"></i>
+                </div>
+                一、理论基础：F1-score与分类阈值的关系
+            </h2>
+
+            <div class="space-y-8">
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">1.1 F1-score的定义与核心作用</h3>
+                    <p class="mb-4">F1-score是分类任务中平衡<strong>精确率（Precision）</strong>和<strong>召回率（Recall）</strong>的关键指标，其计算公式为：</p>
+                    <div class="bg-gray-100 p-4 rounded-lg mb-4">
+                        \[ F1 = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}} \]
+                    </div>
+                    <p class="mb-4">其中，精确率（Precision）衡量预测为正类的样本中真实正类的比例（$ \text{Precision} = \frac{TP}{TP+FP} $），召回率（Recall）衡量真实正类中被正确预测的比例（$ \text{Recall} = \frac{TP}{TP+FN} $）。</p>
+                    <p>F1-score尤其适用于<strong>不平衡数据集</strong>，例如医疗诊断中"疾病阳性"样本稀少的场景，可避免单一指标（如准确率）的误导。</p>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">1.2 阈值对F1-score的影响机制</h3>
+                    <p class="mb-4">分类模型（如逻辑回归、XGBoost）通常输出样本属于正类的概率，默认以<strong>0.5</strong>为阈值：概率≥0.5预测为正类，否则为负类。但该阈值未必最优，其调整会直接影响精确率和召回率，进而改变F1-score：</p>
+                    <ul class="list-disc pl-6 space-y-2 mb-4">
+                        <li><strong>降低阈值</strong>：更多样本被预测为正类，召回率提升但精确率下降（假阳性增多）；</li>
+                        <li><strong>提高阈值</strong>： fewer样本被预测为正类，精确率提升但召回率下降（假阴性增多）。</li>
+                    </ul>
+                    <p><strong>P-R曲线（Precision-Recall Curve）</strong>可直观展示不同阈值下精确率与召回率的权衡关系，曲线的"肘部"（elbow point）通常对应F1-score最优的阈值。</p>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">1.3 最优阈值的理论推导</h3>
+                    <p class="mb-4">Lipton等人在2014年的论文《Thresholding Classifiers to Maximize F1 Score》中证明：若分类器输出<strong>校准良好的概率</strong>（即预测概率接近真实概率），则最大化F1-score的最优阈值$ t^* $满足：</p>
+                    <div class="bg-gray-100 p-4 rounded-lg mb-4">
+                        \[ t^* = \frac{F1^*}{2} \]
+                    </div>
+                    <p>其中$ F1^* $为最优F1-score。例如，若模型在阈值0.3时达到最高F1-score=0.6，则该阈值满足$ 0.3 = 0.6/2 $，验证了理论的适用性。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 静态阈值优化方法部分 -->
+        <section id="static-methods" class="glassmorphism p-8 mb-16">
+            <h2 class="text-3xl font-bold mb-6 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-tools"></i>
+                </div>
+                二、静态阈值优化方法：从理论到工具
+            </h2>
+
+            <div class="space-y-8">
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">2.1 基于P-R曲线的网格搜索法</h3>
+                    <p class="mb-4">通过遍历可能的阈值（通常为模型输出概率的所有 unique 值），计算每个阈值对应的F1-score，选择最大值对应的阈值。<strong>Scikit-learn</strong>提供<code>precision_recall_curve</code>函数实现这一过程，示例代码如下：</p>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-lg mb-2 text-gray-700">功能：计算二分类任务的最优阈值</h4>
+                        <div class="code-block">
+                            <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+                            <pre><code class="language-python">import numpy as np
+from sklearn.metrics import precision_recall_curve, f1_score
+
+# 假设y_true为真实标签，y_scores为模型输出的正类概率
+y_true = np.array([0, 1, 1, 0, 1, 0, 1, 1, 0, 0])
+y_scores = np.array([0.1, 0.4, 0.35, 0.8, 0.65, 0.7, 0.2, 0.9, 0.55, 0.3])
+
+# 计算不同阈值下的精确率、召回率
+precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
+# 计算F1-score（排除最后一个阈值，因其对应召回率=0）
+f1_scores = 2 * precision[:-1] * recall[:-1] / (precision[:-1] + recall[:-1] + 1e-8)
+# 找到最优阈值
+best_idx = np.argmax(f1_scores)
+best_threshold = thresholds[best_idx]
+print(f"最优阈值: {best_threshold:.3f}, 对应F1-score: {f1_scores[best_idx]:.3f}")</code></pre>
+                        </div>
+                    </div>
+                    <div class="bg-blue-50 rounded-lg p-4 mb-4">
+                        <p class="text-blue-800"><strong>输出</strong>：<code>最优阈值: 0.350, 对应F1-score: 0.750</code></p>
+                        <p class="text-blue-800"><strong>说明</strong>：通过遍历阈值0.1~0.9，发现当阈值=0.35时F1-score最高，此时精确率=0.75，召回率=0.75。</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">2.2 工具对比：Scikit-learn vs. ClassificationThresholdTuner</h3>
+                    <div class="table-container mb-4">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>工具</th>
+                                    <th>优势</th>
+                                    <th>局限性</th>
+                                    <th>适用场景</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Scikit-learn TunedThresholdClassifierCV</strong></td>
+                                    <td>原生集成、支持交叉验证</td>
+                                    <td>仅支持二分类、无可视化</td>
+                                    <td>简单二分类任务</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ClassificationThresholdTuner</strong></td>
+                                    <td>支持多分类、提供可视化解释、阈值稳定性分析</td>
+                                    <td>需手动安装（无PyPI包）</td>
+                                    <td>多分类任务、需解释阈值决策</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mb-4"><strong>ClassificationThresholdTuner</strong>是开源工具，通过GitHub获取（<a href="https://github.com/Brett-Kennedy/ClassificationThresholdTuner" class="text-indigo-600 hover:underline" target="_blank">链接</a>），其核心功能包括：</p>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li>自动为每个类别优化阈值（多分类场景）；</li>
+                        <li>生成阈值-F1曲线、混淆矩阵热力图等可视化结果；</li>
+                        <li>支持F1、F2等多指标优化。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- 动态阈值调整策略部分 -->
+        <section id="dynamic-methods" class="glassmorphism p-8 mb-16">
+            <h2 class="text-3xl font-bold mb-6 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-sync-alt"></i>
+                </div>
+                三、动态阈值调整策略：从静态到实时
+            </h2>
+
+            <div class="space-y-8">
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">3.1 触发机制：何时需要调整阈值？</h3>
+                    <p class="mb-4">动态调整的核心是<strong>感知数据分布或模型性能的变化</strong>，常见触发条件包括：</p>
+                    <ul class="list-disc pl-6 space-y-2 mb-4">
+                        <li><strong>时间驱动</strong>：定期（如每日/每周）重新计算阈值，适用于数据分布缓慢变化的场景（如用户流失预测）；</li>
+                        <li><strong>数据驱动</strong>：当检测到<strong>数据漂移</strong>（如特征分布变化超过阈值）或模型性能下降（如F1-score低于预设阈值α）时触发调整。</li>
+                    </ul>
+                    <p>例如，在医疗影像检测中，若新数据中病灶特征分布发生变化（通过PSI指标检测），则自动触发阈值重优化。</p>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">3.2 多分类场景的动态阈值调整</h3>
+                    <p class="mb-4">多分类任务需为每个类别单独设置阈值，步骤如下：</p>
+                    <ol class="list-decimal pl-6 space-y-2 mb-4">
+                        <li><strong>one-vs-rest转换</strong>：将每个类别视为"正类"，其余类别合并为"负类"；</li>
+                        <li><strong>类别级阈值优化</strong>：对每个类别执行二分类阈值优化（如P-R曲线法）；</li>
+                        <li><strong>冲突解决</strong>：若样本被多个类别预测为正类（概率均超过对应阈值），选择概率最高的类别作为最终预测。</li>
+                    </ol>
+                    
+                    <h4 class="font-semibold text-lg mb-2 text-gray-700">功能：多分类阈值优化（基于ClassificationThresholdTuner）</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+                        <pre><code class="language-python">from threshold_tuner import ClassificationThresholdTuner
+import pandas as pd
+
+# 加载模型预测概率（shape: [n_samples, n_classes]）和真实标签
+y_proba = pd.read_csv("multiclass_proba.csv").values
+y_true = pd.read_csv("multiclass_labels.csv").values
+
+# 初始化调优器，优化目标为Macro-F1
+tuner = ClassificationThresholdTuner(metric='f1_macro')
+# 拟合数据并优化阈值
+tuner.fit(y_true, y_proba)
+# 获取每个类别的最优阈值
+class_thresholds = tuner.thresholds_
+print("每个类别的最优阈值:", class_thresholds)</code></pre>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">3.3 实时监控与闭环优化</h3>
+                    <p class="mb-4">结合监控工具（如<strong>HertzBeat</strong>、<strong>Evidently AI</strong>）实现动态阈值的端到端闭环：</p>
+                    <ol class="list-decimal pl-6 space-y-2 mb-4">
+                        <li><strong>数据采集</strong>：实时收集模型预测概率、真实标签、特征分布等数据；</li>
+                        <li><strong>性能评估</strong>：定期计算F1-score、数据漂移指标（如PSI、KS）；</li>
+                        <li><strong>阈值更新</strong>：当性能指标低于阈值或检测到漂移时，自动调用优化算法更新阈值；</li>
+                        <li><strong>告警通知</strong>：通过邮件、钉钉等渠道推送阈值调整结果及原因。</li>
+                    </ol>
+                    <p>例如，某金融风控系统使用<strong>Prometheus+Evidently</strong>监控模型，当F1-score连续3天低于0.8时，触发ClassificationThresholdTuner重新优化阈值，并通过Webhook通知风控团队。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 应用案例部分 -->
+        <section id="applications" class="glassmorphism p-8 mb-16">
+            <h2 class="text-3xl font-bold mb-6 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-laptop-code"></i>
+                </div>
+                四、应用案例：从理论到业务落地
+            </h2>
+
+            <div class="space-y-8">
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">4.1 医疗诊断：平衡漏诊与误诊</h3>
+                    <p class="mb-4">在肺炎检测任务中，需权衡假阴性（漏诊）和假阳性（误诊）：</p>
+                    <ul class="list-disc pl-6 space-y-2 mb-4">
+                        <li><strong>低阈值（如0.3）</strong>：召回率优先，确保95%的肺炎患者被检出，但假阳性率上升（健康人被误诊）；</li>
+                        <li><strong>高阈值（如0.7）</strong>：精确率优先，误诊率低于5%，但可能漏检早期轻症患者。</li>
+                    </ul>
+                    <p>通过动态调整阈值，系统可根据临床需求（如疫情期间优先降低漏诊率）自动切换策略，实测F1-score提升12%~18%。</p>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">4.2 金融风控：非法集资识别</h3>
+                    <p class="mb-4">某银行使用XGBoost模型预测企业非法集资风险，通过动态阈值调整解决样本不平衡问题：</p>
+                    <ol class="list-decimal pl-6 space-y-2 mb-4">
+                        <li><strong>初始阈值</strong>：0.5时F1-score仅为0.62（多数风险企业被漏检）；</li>
+                        <li><strong>优化后</strong>：通过P-R曲线找到最优阈值0.38，F1-score提升至0.79，同时将假阳性率控制在15%以内；</li>
+                        <li><strong>动态更新</strong>：每月根据新标注数据重新优化阈值，模型稳定性（F1波动）从±0.12降至±0.05。</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- 挑战与最佳实践部分 -->
+        <section id="challenges" class="glassmorphism p-8 mb-16">
+            <h2 class="text-3xl font-bold mb-6 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                五、挑战与最佳实践
+            </h2>
+
+            <div class="space-y-8">
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">5.1 核心挑战</h3>
+                    <ul class="list-disc pl-6 space-y-2 mb-4">
+                        <li><strong>阈值稳定性</strong>：频繁调整可能导致模型输出波动，建议设置"冷静期"（如至少间隔7天调整一次）；</li>
+                        <li><strong>多指标冲突</strong>：F1-score与AUC、精确率等指标可能存在冲突，需结合业务成本（如假阳性成本高于假阴性时优先精确率）；</li>
+                        <li><strong>计算资源限制</strong>：实时场景下需优化阈值计算效率，可采用近似算法（如分位数抽样）减少计算量。</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-2xl font-semibold mb-4">5.2 最佳实践</h3>
+                    <ol class="list-decimal pl-6 space-y-2 mb-4">
+                        <li><strong>阈值校准</strong>：使用 Platt Scaling或Isotonic Regression校准模型输出概率，确保Lipton理论公式适用；</li>
+                        <li><strong>可视化解释</strong>：通过ClassificationThresholdTuner生成阈值-F1曲线，向业务方解释调整依据；</li>
+                        <li><strong>灰度发布</strong>：新阈值上线前通过A/B测试验证效果，对比新旧阈值的F1-score及业务指标（如召回率提升带来的增收）。</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- 总结部分 -->
+        <section id="summary" class="glassmorphism p-8 mb-16">
+            <h2 class="text-3xl font-bold mb-6 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                六、总结
+            </h2>
+
+            <p class="mb-4">基于F1-score的动态阈值调整是提升分类模型实用性的关键技术，其核心在于通过理论指导（如Lipton最优阈值公式）、工具支持（如ClassificationThresholdTuner）和实时监控（如HertzBeat+Evidently），在数据分布变化时自适应优化决策边界。</p>
+            <p>在实际应用中，需结合业务场景（如医疗、金融）的成本权衡，通过"静态优化+动态更新+闭环监控"的全流程管理，实现模型性能与稳定性的双重保障。</p>
+        </section>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-100 py-8">
+        <div class="container mx-auto px-4 md:px-8 text-center text-gray-600">
+        </div>
+    </footer>
+
+    <script>
+        // 移动端导航菜单切换
+        const menuButton = document.getElementById('mobileMenuButton');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        menuButton.addEventListener('click', function() {
+            mobileMenu.classList.toggle('active');
+            const icon = this.querySelector('i');
+            if (mobileMenu.classList.contains('active')) {
+                icon.classList.remove('fa-bars');
+                icon.classList.add('fa-times');
+            } else {
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-bars');
+            }
+        });
+
+        // 点击页面其他区域关闭移动端菜单
+        document.addEventListener('click', function(event) {
+            const isClickInsideNav = document.getElementById('mainNav').contains(event.target);
+            if (!isClickInsideNav && mobileMenu.classList.contains('active')) {
+                mobileMenu.classList.remove('active');
+                const icon = menuButton.querySelector('i');
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-bars');
+            }
+        });
+
+        // 返回顶部按钮
+        const backToTopButton = document.getElementById('backToTop');
+        window.addEventListener('scroll', function() {
+            if (window.pageYOffset > 300) {
+                backToTopButton.classList.add('visible');
+            } else {
+                backToTopButton.classList.remove('visible');
+            }
+        });
+        backToTopButton.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // 复制代码功能
+        function copyCode(button) {
+            const codeBlock = button.parentElement;
+            const code = codeBlock.querySelector('code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '已复制!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        // 初始化MathJax
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+
+        // 初始化mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>
