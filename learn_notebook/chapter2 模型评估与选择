@@ -1,0 +1,280 @@
+# 西瓜书第二章 模型评估与选择 学习笔记
+
+
+## 前言
+本章聚焦机器学习中模型评估与选择的核心问题，包括如何衡量模型性能、如何选择合适的评估方法、如何分析模型误差来源等。以下结合理论解析与代码实现展开说明。
+
+
+## 2.1 经验误差与过拟合
+
+### 核心概念
+- **错误率与精度**：错误率是分类错误的样本占比（$E=\frac{a}{m}$），精度为1-错误率。
+- **误差类型**：
+  - 经验误差（训练误差）：模型在训练集上的误差。
+  - 泛化误差：模型在新样本上的误差（实际关注的指标）。
+- **过拟合与欠拟合**：
+  - 过拟合：模型学习能力过强，过度拟合训练数据细节（泛化能力差）。
+  - 欠拟合：模型学习能力不足，未能捕捉数据规律（训练误差和泛化误差均较高）。
+
+
+### 代码示例：过拟合与欠拟合可视化
+通过多项式拟合展示过拟合与欠拟合现象：
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+
+# 生成带噪声的样本数据
+np.random.seed(42)
+x = np.linspace(0, 10, 100)
+y_true = np.sin(x)
+y = y_true + np.random.normal(0, 0.3, size=100)  # 加入噪声
+
+# 定义不同复杂度的模型（多项式阶数）
+models = [
+    Pipeline([('poly', PolynomialFeatures(degree=1)), ('lr', LinearRegression())]),  # 欠拟合（阶数太低）
+    Pipeline([('poly', PolynomialFeatures(degree=3)), ('lr', LinearRegression())]),  # 合适拟合
+    Pipeline([('poly', PolynomialFeatures(degree=20)), ('lr', LinearRegression())])  # 过拟合（阶数太高）
+]
+
+# 绘图
+plt.figure(figsize=(12, 4))
+for i, model in enumerate(models):
+    model.fit(x.reshape(-1, 1), y)
+    y_pred = model.predict(x.reshape(-1, 1))
+    
+    plt.subplot(1, 3, i+1)
+    plt.scatter(x, y, label='样本数据', alpha=0.5)
+    plt.plot(x, y_true, 'r--', label='真实规律')
+    plt.plot(x, y_pred, 'g-', label='模型预测')
+    plt.title(f'多项式阶数: {i*2+1}')
+    plt.legend()
+
+plt.tight_layout()
+plt.show()
+```
+- 左图（低阶）：欠拟合，无法捕捉正弦曲线规律。
+- 中图（3阶）：拟合合理，接近真实规律。
+- 右图（20阶）：过拟合，过度拟合噪声，曲线波动剧烈。
+
+
+## 2.2 评估方法
+
+### 核心方法
+- **留出法**：将数据集划分为互斥的训练集和测试集（如7:3划分），需保持数据分布一致（分层采样）。
+- **交叉验证法**：将数据集划分为$k$个互斥子集，轮流用$k-1$个训练、1个测试，最终取平均（$k$常取10）。
+- **自助法**：通过自助采样（有放回）生成训练集和测试集，适用于小数据集。
+
+
+### 代码示例：评估方法实现
+```python
+import numpy as np
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold
+from sklearn.datasets import load_iris
+
+# 加载数据
+data = load_iris()
+X, y = data.data, data.target
+
+# 1. 留出法（分层采样）
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, stratify=y, random_state=42  # stratify=y保证分层采样
+)
+print(f"留出法：训练集大小{X_train.shape[0]}, 测试集大小{X_test.shape[0]}")
+
+# 2. 交叉验证法（10折）
+kf = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)  # 分层K折
+for fold, (train_idx, test_idx) in enumerate(kf.split(X, y)):
+    X_train, X_test = X[train_idx], X[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
+    if fold == 0:  # 仅展示第1折
+        print(f"10折交叉验证第1折：训练集{X_train.shape[0]}, 测试集{X_test.shape[0]}")
+
+# 3. 自助法
+def bootstrap_sample(X, y):
+    m = X.shape[0]
+    idx = np.random.choice(m, m, replace=True)  # 有放回采样
+    train_idx = np.unique(idx)  # 训练集（去重）
+    test_idx = np.setdiff1d(np.arange(m), train_idx)  # 测试集（未被采样的样本）
+    return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
+
+X_train, X_test, y_train, y_test = bootstrap_sample(X, y)
+print(f"自助法：训练集大小{X_train.shape[0]}, 测试集大小{X_test.shape[0]}")
+```
+
+
+### 超参数与验证集
+- **超参数**：模型训练前手动设置的参数（如$k$近邻的$k$），需通过验证集调优。
+- **验证集**：从训练集中划分，用于选择最优超参数，最终用测试集评估模型。
+
+
+## 2.3 性能度量
+
+### 核心指标
+- **分类任务**：错误率、精度、混淆矩阵、查准率（P）、查全率（R）、F1分数、ROC曲线、AUC。
+- **回归任务**：均方误差（MSE）、平均绝对误差（MAE）等。
+
+
+### 代码示例：分类性能度量计算
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import (confusion_matrix, precision_score, recall_score, f1_score,
+                             roc_curve, auc, classification_report)
+from sklearn.linear_model import LogisticRegression
+from sklearn.datasets import make_classification
+
+# 生成二分类数据
+X, y = make_classification(n_samples=1000, n_classes=2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# 训练模型并预测
+model = LogisticRegression()
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+y_pred_proba = model.predict_proba(X_test)[:, 1]  # 正例概率
+
+# 1. 混淆矩阵
+cm = confusion_matrix(y_test, y_pred)
+print("混淆矩阵：")
+print(cm)
+# 混淆矩阵元素：TP=cm[1,1], TN=cm[0,0], FP=cm[0,1], FN=cm[1,0]
+
+# 2. 查准率、查全率、F1
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+print(f"查准率(P): {precision:.2f}, 查全率(R): {recall:.2f}, F1: {f1:.2f}")
+
+# 3. ROC曲线与AUC
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+roc_auc = auc(fpr, tpr)
+
+plt.figure(figsize=(6, 6))
+plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC曲线 (AUC = {roc_auc:.2f})')
+plt.plot([0, 1], [0, 1], 'k--', lw=2)  # 随机猜测基线
+plt.xlabel('假正例率(FPR)')
+plt.ylabel('真正例率(TPR)')
+plt.title('ROC曲线')
+plt.legend()
+plt.show()
+
+# 4. 综合报告
+print("\n分类报告：")
+print(classification_report(y_test, y_pred))
+```
+
+
+## 2.4 比较检验
+### 核心思想
+- 性能度量结果是随机变量，需通过统计检验（如$t$检验）判断模型差异是否显著。
+- 常用方法：交叉验证$t$检验、 McNemar检验等。
+
+
+### 代码示例：交叉验证t检验
+```python
+import numpy as np
+from scipy import stats
+from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.datasets import load_iris
+
+# 加载数据
+data = load_iris()
+X, y = data.data, data.target
+
+# 定义两个模型
+model1 = LogisticRegression(max_iter=1000)
+model2 = SVC()
+
+# 10折交叉验证获取性能分数
+scores1 = cross_val_score(model1, X, y, cv=10, scoring='accuracy')
+scores2 = cross_val_score(model2, X, y, cv=10, scoring='accuracy')
+
+# 计算差异
+diff = scores1 - scores2
+
+# 配对t检验（检验差异是否显著不为0）
+t_stat, p_value = stats.ttest_rel(scores1, scores2)
+print(f"t统计量: {t_stat:.2f}, p值: {p_value:.4f}")
+print("结论：" + ("存在显著差异" if p_value < 0.05 else "无显著差异"))
+```
+
+
+## 2.5 偏差与方差
+### 核心公式
+- 泛化误差可分解为：  
+  $$\text{泛化误差} = \text{偏差}^2 + \text{方差} + \text{噪声}$$
+  - **偏差**：模型对真实规律的平均偏离程度（反映欠拟合倾向）。
+  - **方差**：模型对训练数据波动的敏感程度（反映过拟合倾向）。
+
+
+### 代码示例：偏差与方差可视化
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+
+# 生成带噪声的样本（真实规律：y = sin(x)）
+np.random.seed(42)
+x = np.linspace(0, 10, 30)
+y_true = np.sin(x)
+y = y_true + np.random.normal(0, 0.3, size=30)  # 加入噪声
+
+# 不同复杂度模型（多项式阶数）
+degrees = [1, 3, 10]
+models = [
+    Pipeline([('poly', PolynomialFeatures(degree=d)), ('lr', LinearRegression())])
+    for d in degrees
+]
+
+# 多次采样训练，计算偏差和方差
+n_samples = 100  # 采样次数
+x_test = np.linspace(0, 10, 100)  # 测试点
+all_preds = []  # 存储所有模型的预测结果
+
+for model in models:
+    preds = []
+    for _ in range(n_samples):
+        # 随机采样训练数据（模拟不同训练集）
+        idx = np.random.choice(30, 20, replace=True)
+        X_train = x[idx].reshape(-1, 1)
+        y_train = y[idx]
+        model.fit(X_train, y_train)
+        preds.append(model.predict(x_test.reshape(-1, 1)))
+    all_preds.append(np.array(preds))
+
+# 计算偏差和方差
+plt.figure(figsize=(12, 4))
+for i, d in enumerate(degrees):
+    preds = all_preds[i]
+    mean_pred = np.mean(preds, axis=0)  # 平均预测（偏差计算依据）
+    bias = np.mean((mean_pred - np.sin(x_test))**2)  # 偏差^2
+    var = np.mean(np.var(preds, axis=0))  # 方差
+    
+    plt.subplot(1, 3, i+1)
+    plt.scatter(x, y, label='样本数据', alpha=0.3)
+    plt.plot(x_test, np.sin(x_test), 'r--', label='真实规律')
+    plt.plot(x_test, mean_pred, 'b-', label='平均预测')
+    plt.plot(x_test, preds[:5].T, 'g-', alpha=0.2)  # 部分预测曲线
+    plt.title(f'阶数={d}, 偏差²={bias:.3f}, 方差={var:.3f}')
+    plt.legend()
+
+plt.tight_layout()
+plt.show()
+```
+- 左图（低阶）：偏差大（平均预测远离真实规律），方差小（预测稳定）。
+- 右图（高阶）：偏差小（平均预测接近真实规律），方差大（预测波动剧烈）。
+
+
+## 总结
+本章核心是**如何科学评估模型性能**，包括：
+1. 理解误差类型（经验误差vs泛化误差）及过拟合/欠拟合原因。
+2. 掌握评估方法（留出法、交叉验证法）的适用场景。
+3. 熟练计算性能度量（P/R/F1、ROC/AUC等）并理解其含义。
+4. 从偏差-方差角度分析模型泛化能力，指导模型选择（如简单模型降低方差，复杂模型降低偏差）。
