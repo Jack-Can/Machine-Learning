@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI大模型应用专家数据可视化</title>
+    <script src="https://cdn.tailwindcss.com/3.3.3"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.5.0/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 28px 0 rgba(99, 102, 241, 0.3);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+        .neon-text {
+            text-shadow: 0 0 5px rgba(99, 102, 241, 0.8);
+        }
+        .neon-border {
+            border: 1px solid rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+        .neon-border:hover {
+            border-color: rgba(99, 102, 241, 0.8);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.8);
+        }
+        .chart-container {
+            height: 300px;
+            width: 100%;
+            position: relative;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #6b21a8 100%);
+        }
+        .tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .nav-link {
+            position: relative;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        .mobile-menu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .mobile-menu.active {
+            max-height: 500px;
+        }
+        .project-card {
+            transition: all 0.3s ease;
+        }
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="gradient-bg sticky top-0 z-50 p-4 shadow-lg">
+        <div class="container mx-auto flex items-center justify-between">
+            <div class="text-xl font-bold text-white flex items-center">
+                <i class="fas fa-robot mr-2"></i>
+                <span class="neon-text">AI大模型应用专家</span>
+            </div>
+            <div class="hidden md:flex space-x-8">
+                <a href="#overview" class="nav-link text-gray-300 hover:text-white">核心数据</a>
+                <a href="#architecture" class="nav-link text-gray-300 hover:text-white">技术架构</a>
+                <a href="#projects" class="nav-link text-gray-300 hover:text-white">实战项目</a>
+            </div>
+            <button class="md:hidden text-white focus:outline-none" id="menuToggle">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+        <!-- 移动端菜单 -->
+        <div class="mobile-menu container mx-auto mt-2" id="mobileMenu">
+            <div class="flex flex-col space-y-2 p-2">
+                <a href="#overview" class="nav-link text-gray-300 hover:text-white py-2">核心数据</a>
+                <a href="#architecture" class="nav-link text-gray-300 hover:text-white py-2">技术架构</a>
+                <a href="#projects" class="nav-link text-gray-300 hover:text-white py-2">实战项目</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 标题部分 -->
+        <section class="text-center mb-16">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 text-white neon-text">AI大模型应用专家</h1>
+            <p class="text-xl text-gray-300 max-w-3xl mx-auto">探索AI大模型在各领域的应用与实践，从基础原理到高级开发技术</p>
+        </section>
+
+        <!-- 核心数据部分 -->
+        <section id="overview" class="mb-16">
+            <h2 class="text-3xl font-bold mb-8 flex items-center">
+                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-database"></i>
+                </div>
+                <span class="neon-text">核心数据概览</span>
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div class="glass-card p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-indigo-300">模块分布</h3>
+                    <div class="chart-container">
+                        <canvas id="moduleChart"></canvas>
+                    </div>
+                </div>
+                <div class="glass-card p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-purple-300">技术趋势</h3>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glass-card p-6">
+                <h3 class="text-xl font-semibold mb-4 text-blue-300">模块内容摘要</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead>
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">模块</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">主要内容</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">总结</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-300">AI大模型应用基础</td>
+                                <td class="px-6 py-4 text-sm text-gray-300">AIGC发展、大模型API使用、Prompt工程</td>
+                                <td class="px-6 py-4 text-sm text-gray-300">理解AIGC与大模型基本原理，掌握API调用和Prompt优化</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-purple-300">AI大模型应用核心开发工具</td>
+                                <td class="px-6 py-4 text-sm text-gray-300">Embeddings、RAG、Text2SQL、LangChain</td>
+                                <td class="px-6 py-4 text-sm text-gray-300">掌握核心开发工具链，构建企业级AI应用</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-300">Coze和Dify应用技术</td>
+                                <td class="px-6 py-4 text-sm text-gray-300">Coze工作原理、Agent开发、Dify部署</td>
+                                <td class="px-6 py-4 text-sm text-gray-300">掌握低代码AI平台应用与开发</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 技术架构部分 -->
+        <section id="architecture" class="mb-16">
+                        
+            <div class="glass-card p-6">
+                <h3 class="text-xl font-semibold mb-4 text-purple-300">架构组件说明</h3>
+                <div id="mermaid-diagram" class="mermaid">
+                    classDiagram
+                        class 基础设施层 {
+                            GPU集群
+                            存储系统
+                            网络设施
+                        }
+                        
+                        class 模型层 {
+                            预训练模型
+                            微调模型
+                            Embedding模型
+                        }
+                        
+                        class API网关层 {
+                            鉴权服务
+                            流量控制
+                            请求路由
+                            监控告警
+                        }
+                        
+                        class 应用层 {
+                            企业知识库
+                            智能BI报表
+                            AI运营助手
+                            搜索类应用
+                        }
+                        
+                        基础设施层 --> 模型层 : 提供计算资源
+                        模型层 --> API网关层 : 暴露服务接口
+                        API网关层 --> 应用层 : 提供服务能力
+                </div>
+            </div>
+        </section>
+
+        <!-- 实战项目部分 -->
+        <section id="projects" class="mb-16">
+            <h2 class="text-3xl font-bold mb-8 flex items-center">
+                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white mr-3">
+                    <i class="fas fa-laptop-code"></i>
+                </div>
+                <span class="neon-text">实战项目推荐</span>
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- 企业知识库项目 -->
+                <div class="project-card glass-card p-6 rounded-lg">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-indigo-900 flex items-center justify-center text-indigo-300 mr-3">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-indigo-300">企业知识库</h3>
+                    </div>
+                    <div class="mb-4">
+                        <a href="https://github.com/IlyaRice/RAG-Challenge-2" class="text-white hover:text-indigo-300 font-medium flex items-center">
+                            RAG挑战赛冠军方案 <span class="text-yellow-300 ml-2">🌟 13.1k</span>
+                        </a>
+                    </div>
+                    <div class="flex flex-wrap mb-3">
+                        <span class="tag"><i class="fas fa-route mr-1"></i> 多路由检索</span>
+                        <span class="tag"><i class="fas fa-database mr-1"></i> 动态知识库</span>
+                        <span class="tag"><i class="fas fa-sort-amount-up mr-1"></i> LLM重排序</span>
+                        <span class="tag"><i class="fas fa-search mr-1"></i> 向量数据库</span>
+                    </div>
+                    <p class="text-sm text-gray-300">企业RAG大赛冠军项目，基于多路由+动态知识库架构，包含LLM重排序技术和内容提取优化</p>
+                </div>
+                
+                <!-- BI报表项目 -->
+                <div class="project-card glass-card p-6 rounded-lg">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-purple-900 flex items-center justify-center text-purple-300 mr-3">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-purple-300">交互式BI报表</h3>
+                    </div>
+                    <div class="mb-4">
+                        <a href="https://github.com/freewheel-ai/chatbi" class="text-white hover:text-purple-300 font-medium flex items-center">
+                            FreeWheel ChatBI <span class="text-yellow-300 ml-2">🌟 8.7k</span>
+                        </a>
+                    </div>
+                    <div class="flex flex-wrap mb-3">
+                        <span class="tag"><i class="fas fa-code mr-1"></i> Text2SQL</span>
+                        <span class="tag"><i class="fas fa-chart-line mr-1"></i> ARIMA预测</span>
+                        <span class="tag"><i class="fas fa-exclamation-triangle mr-1"></i> 异常检测</span>
+                        <span class="tag"><i class="fas fa-eye mr-1"></i> 交互式可视化</span>
+                    </div>
+                    <p class="text-sm text-gray-300">支持自然语言查询的智能BI系统，实现Text2SQL转换和ARIMA时序预测，可视化效果丰富</p>
+                </div>
+                
+                <!-- AI运营助手项目 -->
+                <div class="project-card glass-card p-6 rounded-lg">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center text-blue-300 mr-3">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-blue-300">AI智慧运营助手</h3>
+                    </div>
+                    <div class="mb-4">
+                        <a href="https://cloud.tencent.com/product/ai-agent" class="text-white hover:text-blue-300 font-medium flex items-center">
+                            腾讯云智能体平台 <span class="text-yellow-300 ml-2">🌟 N/A</span>
+                        </a>
+                    </div>
+                    <div class="flex flex-wrap mb-3">
+                        <span class="tag"><i class="fas fa-robot mr-1"></i> 多Agent协作</span>
+                        <span class="tag"><i class="fas fa-id-card mr-1"></i> 客户画像</span>
+                        <span class="tag"><i class="fas fa-chart-pie mr-1"></i> SHAP分析</span>
+                        <span class="tag"><i class="fas fa-tv mr-1"></i> 可视化大屏</span>
+                    </div>
+                    <p class="text-sm text-gray-300">基于多Agent架构的百万客群经营系统，实现客户画像构建和个性化推荐</p>
+                </div>
+                
+                <!-- AI搜索类项目 -->
+                <div class="project-card glass-card p-6 rounded-lg">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-green-900 flex items-center justify-center text-green-300 mr-3">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-green-300">AI搜索类应用</h3>
+                    </div>
+                    <div class="mb-4">
+                        <a href="https://github.com/zhihu/zhida" class="text-white hover:text-green-300 font-medium flex items-center">
+                            知乎直答系统 <span class="text-yellow-300 ml-2">🌟 9.3k</span>
+                        </a>
+                    </div>
+                    <div class="flex flex-wrap mb-3">
+                        <span class="tag"><i class="fas fa-search-plus mr-1"></i> 语义检索</span>
+                        <span class="tag"><i class="fas fa-database mr-1"></i> Faiss</span>
+                        <span class="tag"><i class="fas fa-brain mr-1"></i> DeepSeek</span>
+                        <span class="tag"><i class="fas fa-random mr-1"></i> 混合检索技术</span>
+                    </div>
+                    <p class="text-sm text-gray-300">基于DeepSeek和Faiss的语义检索系统，支持关键词与语义混合检索</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+        <script>
+        // 移动端菜单切换
+        document.getElementById('menuToggle').addEventListener('click', function() {
+            document.getElementById('mobileMenu').classList.toggle('active');
+            this.querySelector('i').classList.toggle('fa-bars');
+            this.querySelector('i').classList.toggle('fa-times');
+        });
+
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // 初始化图表
+        document.addEventListener('DOMContentLoaded', function() {
+            // 模块分布图表
+            const moduleCtx = document.getElementById('moduleChart').getContext('2d');
+            new Chart(moduleCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['AI大模型应用基础', '核心开发工具', 'Coze/Dify应用', '机器学习与AI大赛', '深度学习实战'],
+                    datasets: [{
+                        data: [20, 35, 15, 20, 10],
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.8)',
+                            'rgba(139, 92, 246, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(99, 102, 241, 1)',
+                            'rgba(139, 92, 246, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(245, 158, 11, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#e2e8f0'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.raw + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 技术趋势图表
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: ['2020', '2021', '2022', '2023', '2024'],
+                    datasets: [
+                        {
+                            label: 'RAG技术',
+                            data: [10, 25, 45, 70, 90],
+                            borderColor: 'rgba(99, 102, 241, 1)',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'Agent技术',
+                            data: [5, 15, 30, 60, 85],
+                            borderColor: 'rgba(139, 92, 246, 1)',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'Text2SQL',
+                            data: [8, 20, 35, 55, 75],
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            },
+                            ticks: {
+                                color: '#e2e8f0'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#e2e8f0'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e2e8f0'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 初始化Mermaid图表
+            mermaid.initialize({
+                startOnLoad: true,
+                theme: 'dark',
+                themeVariables: {
+                    primaryColor: '#1e3a8a',
+                    secondaryColor: '#6b21a8',
+                    tertiaryColor: '#0f172a'
+                }
+            });
+        });
+    </script>
+</body>
+</html>
